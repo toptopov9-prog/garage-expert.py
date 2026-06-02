@@ -9,7 +9,7 @@ app = FastAPI()
 def read_root():
     return {"status": "Мост Гаражного Эксперта запущен и готов к работе!"}
 
-@app.post("/api/алиса")
+@app.post("/api/alice")
 async def alice_handler(request: dict):
     req_data = request.get("request", {})
     command = req_data.get("command", "")
