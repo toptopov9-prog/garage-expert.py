@@ -1,5 +1,13 @@
 import os
+from fastapi import FastAPI
 import google.generativeai as genai
+
+# Создаем тот самый экземпляр, который требует Версель
+app = FastAPI()
+
+@app.get("/")
+def read_root():
+    return {"status": "Мост Гаражного Эксперта запущен и готов к работе!"}
 
 @app.post("/api/alice")
 async def alice_handler(request: dict):
@@ -29,4 +37,3 @@ async def alice_handler(request: dict):
             "end_session": False
         }
     }
-
