@@ -28,8 +28,8 @@ async def alice_handler(request: dict):
                 raise ValueError("API Key is missing")
                 
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            
+            model = genai.GenerativeModel("gemini-pro")
+    
             prompt = f"Ты — опытный, авторитетный автомеханик по прозвищу 'Гаражный Эксперт'. Отвечай как чёткий мастер из гаражей, по-свойски, но максимально профессионально и по делу. Помоги человеку с его вопросом: {command}"
             response = model.generate_content(prompt)
             reply = response.text
