@@ -1,33 +1,34 @@
-from flask import Flask, request, jsonify
+from fastapi import FastAPI, Request
 import httpx
 
-app = Flask(__name__)
+app = FastAPI()
 
-# Твой свежий API-ключ Gemini с фото
+# Твой железно рабочий ключ с фото
 API_KEY = "AQ.Ab8RN6Jdans4aBfeOVSPuUR5J-HBCoNJN-NQFTiHmyl9M9rgaA"
 
-# Главная страница для проверки в браузере
-@app.route('/', methods=['GET'])
-def root():
-    return jsonify({"status": "working", "message": "Братуха, движок на Flask запущен! Всё чётко!"})
+# Главная страница, чтобы ты зашёл и увидел, что сайт ОЖИЛ
+@app.get("/")
+async def root():
+    return {"status": "working", "message": "Братуха, движок на FastAPI запущен! Всё чётко!"}
 
-# Обработчик для Алисы
-@app.route('/api/alice', methods=['POST'])
-async def alice_handler():
+@app.post("/api/alice")
+async def alice_handler(request: Request):
     try:
-        data = request.get_json(silent=True) or {}
+        data = await request.json()
     except Exception:
-        return jsonify({"version": "1.0", "response": {"text": "Братуха, пустой запрос.", "end_session": False}})
+        return {"version": "1.0", "response": {"text": "Братуха, пустой запрос пришёл.", "end_session": False}}
         
-    command = data.get("request", {}).get("command", "")
+    req_data = data.get("request", {})
+    command = req_data.get("command", "")
     
     if not command:
-        return jsonify({
+        return {
             "version": "1.0",
+            "session": data.get("session", {}),
             "response": {"text": "На связи, братуха! Что по тачке подсказать?", "end_session": False}
-        })
+        }
 
-    # Стучимся к Gemini напрямую через URL
+    # Стучимся к Gemini напрямую через URL с правильным ключом
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
     
     headers = {
@@ -37,7 +38,7 @@ async def alice_handler():
     payload = {
         "contents": [{
             "parts": [{
-                "text": f"Ты опытный автомеханик. Общайся как реальный братуха, используй мат, если надо, но никогда не используй слово 'бро'. Ответь коротко: {command}"
+                "text": f"Ты опытный автомеханик. Общайся как реальный братуха, используй мат, если надо, но никогда не используй слово 'бро'. Ответь коротко на вопрос: {command}"
             }]
         }]
     }
@@ -50,15 +51,12 @@ async def alice_handler():
             res_data = response.json()
             reply = res_data['candidates'][0]['content']['parts'][0]['text']
         else:
-            reply = f"Братуха, Гугл ответил кодом {response.status_code}."
+            reply = f"Братуха, Гугл ответил кодом {response.status_code}. Ошибка: {response.text[:100]}"
             
     except Exception as e:
         reply = f"Братуха, сеть легла: {str(e)}"
 
-    return jsonify({
+    return {
         "version": "1.0",
-        "response": {"text": reply, "end_session": False}
-    })
+        "session": data.get
 
-# Точка входа для Вёрсела
-handler = app
