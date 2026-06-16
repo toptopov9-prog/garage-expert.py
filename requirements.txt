@@ -1,4 +1,2 @@
-fastapi
+Flask
 httpx
-uvicorn
-mangum
