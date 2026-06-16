@@ -1,20 +1,13 @@
 const https = require('https');
 
-// Твой законный ключ, шлюз api.gemini-proxy.ru его прожуёт
+// Твой рабочий токен
 const API_KEY = "AQ.Ab8RN6Jdans4aBfeOVSPuUR5J-HBCoNJN-NQFTiHmyl9M9rgaA";
 
 module.exports = async (req, res) => {
-    // 1. Проверка главной страницы в браузере (GET /)
-    if (req.method === 'GET') {
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        return res.end(JSON.stringify({ status: "working", message: "Братуха, мотор на Node.js шепчет! Родной движок Вёрсела в деле!" }));
-    }
-
-    // 2. Обработчик Алисы (POST /)
+    // 1. Обрабатываем только POST запросы от Алисы
     if (req.method === 'POST') {
         let bodyBuffer = [];
         
-        // Вручную собираем данные от Яндекса, чтобы точно ничего не потерять без библиотек
         req.on('data', (chunk) => {
             bodyBuffer.push(chunk);
         }).on('end', () => {
@@ -27,6 +20,7 @@ module.exports = async (req, res) => {
 
             const command = (data.request && data.request.command) ? data.request.command : "";
 
+            // Если прилетел пустой чек-запрос от Яндекса
             if (!command) {
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
                 return res.end(JSON.stringify({
@@ -36,7 +30,7 @@ module.exports = async (req, res) => {
                 }));
             }
 
-            // Упаковываем запрос под Gemini
+            // Запрос для Gemini через зеркало обхода блокировок
             const payload = JSON.stringify({
                 contents: [{
                     parts: [{
@@ -56,7 +50,7 @@ module.exports = async (req, res) => {
                 timeout: 10000
             };
 
-            // Стреляем в европейский шлюз, Node.js делает это без сучка и задоринки
+            // Родной сетевой запрос Node.js, который Вёрсел не заблокирует
             const geminiRequest = https.request(url, options, (geminiResponse) => {
                 let resBody = '';
                 geminiResponse.on('data', (chunk) => { resBody += chunk; });
@@ -71,10 +65,10 @@ module.exports = async (req, res) => {
                             reply = `Братуха, шлюз вернул ошибку ${geminiResponse.statusCode}`;
                         }
                     } catch (e) {
-                        reply = "Братуха, косяк при чтении ответа от шлюза.";
+                        reply = "Братуха, косяк парсинга ответа от шлюза.";
                     }
 
-                    // Отдаём чистый JSON обратно Алисе
+                    // Отдаем ответ Яндексу
                     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
                     res.end(JSON.stringify({
                         version: "1.0",
@@ -96,5 +90,9 @@ module.exports = async (req, res) => {
             geminiRequest.write(payload);
             geminiRequest.end();
         });
+    } else {
+        // Если зашли через браузер (GET)
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ status: "working", message: "Братуха, функция в папке api готова!" }));
     }
 };
