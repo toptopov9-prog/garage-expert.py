@@ -1,9 +1,7 @@
 import json
-import urllib.request
-import urllib.error
-import ssl
+import subprocess
 
-# Твой ключ, пускай работает
+# Твой ключ
 API_KEY = "AQ.Ab8RN6Jdans4aBfeOVSPuUR5J-HBCoNJN-NQFTiHmyl9M9rgaA"
 
 def app(environ, start_response):
@@ -14,7 +12,7 @@ def app(environ, start_response):
         status = '200 OK'
         response_headers = [('Content-Type', 'application/json; charset=utf-8')]
         start_response(status, response_headers)
-        output = {"status": "working", "message": "Братуха, чистый Питон без библиотек готов к бою!"}
+        output = {"status": "working", "message": "Братуха, система на curl готова к бою!"}
         return [json.dumps(output, ensure_ascii=False).encode('utf-8')]
 
     elif path == '/api/alice' and method == 'POST':
@@ -38,8 +36,7 @@ def app(environ, start_response):
             }
             return [json.dumps(output, ensure_ascii=False).encode('utf-8')]
 
-        # Стучимся через зеркало, но теперь отключаем строгую проверку SSL встроенного urllib,
-        # чтобы Вёрсел не орал "Device or resource busy"
+        # Стучимся через зеркало
         url = f"https://api.gemini-proxy.ru/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
         
         payload = {
@@ -50,32 +47,31 @@ def app(environ, start_response):
             }]
         }
         
-        req_data = json.dumps(payload).encode('utf-8')
-        
-        # Магия чистого Питона: создаем контекст, который пробивает сетевые блокировки Вёрсела
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-
-        req = urllib.request.Request(
-            url, 
-            data=req_data, 
-            headers={
-                'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0'  # Маскируемся под браузер, чтобы шлюз не блокировал
-            }
-        )
+        # Переводим данные запроса в строку JSON
+        json_data = json.dumps(payload)
 
         try:
-            # Передаем наш контекст ctx в urlopen
-            with urllib.request.urlopen(req, timeout=15, context=ctx) as response:
-                res_data = json.loads(response.read().decode('utf-8'))
+            # Наглухо обходим лимиты Вёрсела: фигачим запрос напрямую через системный curl
+            cmd = [
+                'curl', 
+                '-s', 
+                '-X', 'POST', 
+                '-H', 'Content-Type: application/json', 
+                '-d', json_data, 
+                url
+            ]
+            
+            # Выполняем команду в системе и забираем ответ
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=15)
+            
+            if result.returncode == 0 and result.stdout:
+                res_data = json.loads(result.stdout)
                 reply = res_data['candidates'][0]['content']['parts'][0]['text']
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode('utf-8') if e else ""
-            reply = f"Братуха, шлюз ответил ошибкой {e.code}: {error_body[:100]}"
+            else:
+                reply = f"Братуха, системный curl промахнулся. Ошибка: {result.stderr}"
+                
         except Exception as e:
-            reply = f"Братуха, затык сети на чистом Питоне: {str(e)}"
+            reply = f"Братуха, даже через консоль не пробились: {str(e)}"
 
         output = {
             "version": "1.0",
