@@ -1,54 +1,44 @@
-const { GoogleGenAI } = require("@google/genai");
+import os
+from fastapi import FastAPI, Request
+import google.generativeai as genai
 
-module.exports = async (req, res) => {
-  // Нам подходят запросы и на корень /, и на любой другой путь, Яндекс больше не выдаст 404
-  if (req.method !== 'POST') {
-    return res.status(200).json({ message: "На связи, братуха! Скрипт дышит." });
-  }
+# Вот эта строчка обязательна! Вёрсел ищет именно это имя 'app'
+app = FastAPI()
 
-  const { request: aliceRequest, session } = req.body || {};
-  const command = aliceRequest?.command || "";
+@app.get("/")
+async def root():
+    return {"message": "Братуха, я в сети и готов к работе!"}
 
-  // Если Алиса просто проверяет навык (пустая команда)
-  if (!command) {
-    return res.status(200).json({
-      version: "1.0",
-      session: session || {},
-      response: {
-        text: "На связи, братуха! Что по технике? Какую тачку крутим?",
-        end_session: false
-      }
-    });
-  }
-
-  try {
-    // Подтягиваем твой ключ из настроек Вёрсела
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+@app.post("/api/alice")
+async def alice_handler(request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        return {"version": "1.0", "response": {"text": "Братуха, пустой запрос пришёл.", "end_session": False}}
+        
+    req_data = data.get("request", {})
+    command = req_data.get("command", "")
     
-    const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
-      contents: Ты опытный автомеханик. Общайся как реальный братуха, используй крепкое словцо и мат, если это уместно, но никогда не используй слово 'бро'. Ответь коротко на вопрос: ${command},
-    });
+    if not command:
+        return {
+            "version": "1.0",
+            "session": data.get("session", {}),
+            "response": {"text": "На связи, братуха! Что по тачке подсказать?", "end_session": False}
+        }
 
-    const reply = response.text || "Братуха, что-то пошло не так с ответом, повтори.";
+    try:
+        # Ключ берётся из настроек Вёрсела
+        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        
+        prompt = f"Ты опытный автомеханик. Общайся как реальный братуха, используй мат и крепкое словцо, если это уместно, но никогда не используй слово 'бро'. Ответь коротко на вопрос: {command}"
+        response = model.generate_content(prompt)
+        reply = response.text
+    except Exception as e:
+        reply = "Братуха, сервер Gemini чё-то тупит, давай ещё раз."
 
-    return res.status(200).json({
-      version: "1.0",
-      session: session || {},
-      response: {
-        text: reply,
-        end_session: false
-      }
-    });
-
-  } catch (error) {
-    return res.status(200).json({
-      version: "1.0",
-      session: session || {},
-      response: {
-        text: "Братуха, косяк с подключением к нейронке, давай еще раз попробуем.",
-        end_session: false
-      }
-    });
-  }
-};
+    return {
+        "version": "1.0",
+        "session": data.get("session", {}),
+        "response": {"text": reply, "end_session": False}
+    }
