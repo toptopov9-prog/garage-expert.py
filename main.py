@@ -1,15 +1,15 @@
 import os
+import httpx
 from fastapi import FastAPI, Request
-import google.generativeai as genai
 
 app = FastAPI()
 
-# Зашили твой ключ прямо в движок, теперь Версел не отмажется
+# Твой точный ключ с последнего фото
 API_KEY = "AQ.Ab8RN6Lx40dhhzfToMCjGYezNBuze_f2P5CCQHzByvJijy5KWg"
 
 @app.get("/")
 async def root():
-    return {"message": "Братуха, движок запущен прямо с ключа!"}
+    return {"message": "Братуха, движок запущен по правильному пути!"}
 
 @app.post("/api/alice")
 async def alice_handler(request: Request):
@@ -28,17 +28,34 @@ async def alice_handler(request: Request):
             "response": {"text": "На связи, братуха! Что по тачке подсказать?", "end_session": False}
         }
 
+    # Передаём ключ прямо в ссылку через ?key=, как требует Гугл для API-ключей
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+    
+    # Заголовки чистые, никакой авторизации Bearer здесь быть не должно!
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "contents": [{
+            "parts": [{
+                "text": f"Ты опытный автомеханик. Общайся как реальный братуха, используй мат и крепкое словцо, если это уместно, но никогда не используй слово 'бро'. Ответь коротко на вопрос: {command}"
+            }]
+        }]
+    }
+
     try:
-        # Инициализируем Гугл напрямую по ключу
-        genai.configure(api_key=API_KEY)
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        
-        prompt = f"Ты опытный автомеханик. Общайся как реальный братуха, используй мат и крепкое словцо, если это уместно, но никогда не используй слово 'бро'. Ответь коротко на вопрос: {command}"
-        response = model.generate_content(prompt)
-        reply = response.text
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, json=payload, timeout=10.0)
+            
+        if response.status_code == 200:
+            res_data = response.json()
+            reply = res_data['candidates'][0]['content']['parts'][0]['text']
+        else:
+            reply = f"Братуха, Гугл ответил кодом {response.status_code}. Инфо: {response.text[:150]}"
+            
     except Exception as e:
-        # Если ключ не подойдёт, он выведет в Алису саму ошибку, и мы сразу поймём в чём дело
-        reply = f"Братуха, косяк с ключом. Гугл выдал ошибку: {str(e)}"
+        reply = f"Братуха, сетка легла: {str(e)}"
 
     return {
         "version": "1.0",
