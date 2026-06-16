@@ -1,15 +1,16 @@
+import os
 from fastapi import FastAPI, Request
-import httpx
+import google.generativeai as genai
 
+# Вот она, та самая переменная app, которую Вёрсел потерял и обыскался
 app = FastAPI()
 
-# Твой железно рабочий ключ с фото
+# Твой новый, чёткий ключ Gemini прямо с картинки
 API_KEY = "AQ.Ab8RN6Jdans4aBfeOVSPuUR5J-HBCoNJN-NQFTiHmyl9M9rgaA"
 
-# Главная страница, чтобы ты зашёл и увидел, что сайт ОЖИЛ
 @app.get("/")
 async def root():
-    return {"status": "working", "message": "Братуха, движок на FastAPI запущен! Всё чётко!"}
+    return {"status": "working", "message": "Братуха, всё починили! Движок запущен как изначально!"}
 
 @app.post("/api/alice")
 async def alice_handler(request: Request):
@@ -28,35 +29,19 @@ async def alice_handler(request: Request):
             "response": {"text": "На связи, братуха! Что по тачке подсказать?", "end_session": False}
         }
 
-    # Стучимся к Gemini напрямую через URL с правильным ключом
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
-    
-    headers = {
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "contents": [{
-            "parts": [{
-                "text": f"Ты опытный автомеханик. Общайся как реальный братуха, используй мат, если надо, но никогда не используй слово 'бро'. Ответь коротко на вопрос: {command}"
-            }]
-        }]
-    }
-
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, headers=headers, json=payload, timeout=10.0)
-            
-        if response.status_code == 200:
-            res_data = response.json()
-            reply = res_data['candidates'][0]['content']['parts'][0]['text']
-        else:
-            reply = f"Братуха, Гугл ответил кодом {response.status_code}. Ошибка: {response.text[:100]}"
-            
+        # Настраиваем Гугл по твоему новому официальному ключу
+        genai.configure(api_key=API_KEY)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        
+        prompt = f"Ты опытный автомеханик. Общайся как реальный братуха, используй мат и крепкое словцо, если это уместно, но никогда не используй слово 'бро'. Ответь коротко на вопрос: {command}"
+        response = model.generate_content(prompt)
+        reply = response.text
     except Exception as e:
-        reply = f"Братуха, сеть легла: {str(e)}"
+        reply = f"Братуха, сервер Gemini тупит. Ошибка: {str(e)}"
 
     return {
         "version": "1.0",
-        "session": data.get
-
+        "session": data.get("session", {}),
+        "response": {"text": reply, "end_session": False}
+    }
