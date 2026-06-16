@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 import httpx
+from mangum import Mangum
 
 app = FastAPI()
 
@@ -8,7 +9,7 @@ API_KEY = "AQ.Ab8RN6Jdans4aBfeOVSPuUR5J-HBCoNJN-NQFTiHmyl9M9rgaA"
 
 @app.get("/")
 async def root():
-    return {"status": "working", "message": "Братуха, движок переведён на прямой впрыск! Всё чётко!"}
+    return {"status": "working", "message": "Братуха, движок на FastAPI с Mangum запущен! Теперь точно чётко!"}
 
 @app.post("/api/alice")
 async def alice_handler(request: Request):
@@ -27,7 +28,6 @@ async def alice_handler(request: Request):
             "response": {"text": "На связи, братуха! Что по тачке подсказать?", "end_session": False}
         }
 
-    # Отправляем ключ прямо в URL — для новых ключей это единственный стопроцентный способ!
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
     
     headers = {
@@ -48,10 +48,9 @@ async def alice_handler(request: Request):
             
         if response.status_code == 200:
             res_data = response.json()
-            # Достаём ответ из структуры Гугла
             reply = res_data['candidates'][0]['content']['parts'][0]['text']
         else:
-            reply = f"Братуха, Гугл выдал код {response.status_code}. Ошибка авторизации обойдена, но что-то не так."
+            reply = f"Братуха, Гугл выдал ошибку {response.status_code}."
             
     except Exception as e:
         reply = f"Братуха, сеть легла: {str(e)}"
@@ -61,3 +60,6 @@ async def alice_handler(request: Request):
         "session": data.get("session", {}),
         "response": {"text": reply, "end_session": False}
     }
+
+# Вот этот проводник Вёрсел ищет при сборке!
+handler = Mangum(app)
