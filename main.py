@@ -1,35 +1,54 @@
-from fastapi import FastAPI, Request
-import os
-import google.generativeai as genai
+const { GoogleGenAI } = require("@google/genai");
 
-app = FastAPI()
+module.exports = async (req, res) => {
+  // Нам подходят запросы и на корень /, и на любой другой путь, Яндекс больше не выдаст 404
+  if (req.method !== 'POST') {
+    return res.status(200).json({ message: "На связи, братуха! Скрипт дышит." });
+  }
 
-"/api/alice"
-async def alice_handler(request: Request):
-    data = await request.json()
-    req_data = data.get("request", {})
-    command = req_data.get("command", "")
+  const { request: aliceRequest, session } = req.body || {};
+  const command = aliceRequest?.command || "";
+
+  // Если Алиса просто проверяет навык (пустая команда)
+  if (!command) {
+    return res.status(200).json({
+      version: "1.0",
+      session: session || {},
+      response: {
+        text: "На связи, братуха! Что по технике? Какую тачку крутим?",
+        end_session: false
+      }
+    });
+  }
+
+  try {
+    // Подтягиваем твой ключ из настроек Вёрсела
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     
-    if not command:
-        return {
-            "version": "1.0",
-            "session": data.get("session", {}),
-            "response": {"text": "На связи, братуха. Что по тачке?", "end_session": False}
-        }
+    const response = await ai.models.generateContent({
+      model: 'gemini-1.5-flash',
+      contents: Ты опытный автомеханик. Общайся как реальный братуха, используй крепкое словцо и мат, если это уместно, но никогда не используй слово 'бро'. Ответь коротко на вопрос: ${command},
+    });
 
-    try:
-        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        
-        response = model.generate_content(
-            f"Ты автомеханик. Общайся как братуха, используй мат, но НЕ говори 'бро'. Вопрос: {command}"
-        )
-        reply = response.text
-    except Exception as e:
-        reply = "Братуха, сервер прилёг отдохнуть."
+    const reply = response.text || "Братуха, что-то пошло не так с ответом, повтори.";
 
-    return {
-        "version": "1.0",
-        "session": data.get("session", {}),
-        "response": {"text": reply, "end_session": False}
-    }
+    return res.status(200).json({
+      version: "1.0",
+      session: session || {},
+      response: {
+        text: reply,
+        end_session: false
+      }
+    });
+
+  } catch (error) {
+    return res.status(200).json({
+      version: "1.0",
+      session: session || {},
+      response: {
+        text: "Братуха, косяк с подключением к нейронке, давай еще раз попробуем.",
+        end_session: false
+      }
+    });
+  }
+};
