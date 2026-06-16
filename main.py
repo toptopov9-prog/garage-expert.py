@@ -2,29 +2,27 @@ import json
 import urllib.request
 import urllib.error
 
-# Твой рабочий ключ с фото
+# Твой законный ключ с видео, теперь мы его приручим
 API_KEY = "AQ.Ab8RN6Jdans4aBfeOVSPuUR5J-HBCoNJN-NQFTiHmyl9M9rgaA"
 
 def app(environ, start_response):
-    # Определяем, куда зашёл пользователь/Алиса
     path = environ.get('PATH_INFO', '/')
     method = environ.get('REQUEST_METHOD', 'GET')
 
-    # 1. Главная страница для проверки в браузере (GET /)
+    # 1. Главная страница
     if path == '/' and method == 'GET':
         status = '200 OK'
         response_headers = [('Content-Type', 'application/json; charset=utf-8')]
         start_response(status, response_headers)
-        output = {"status": "working", "message": "Братуха, чистый Питон запущен! Без библиотек и ебли!"}
+        output = {"status": "working", "message": "Братуха, код готов принимать новые ключи!"}
         return [json.dumps(output, ensure_ascii=False).encode('utf-8')]
 
-    # 2. Обработчик для Алисы (POST /api/alice)
+    # 2. Обработчик Алисы
     elif path == '/api/alice' and method == 'POST':
         status = '200 OK'
         response_headers = [('Content-Type', 'application/json; charset=utf-8')]
         start_response(status, response_headers)
 
-        # Читаем входящий запрос от Яндекса
         try:
             request_body_size = int(environ.get('CONTENT_LENGTH', 0))
             request_body = environ['wsgi.input'].read(request_body_size)
@@ -41,28 +39,36 @@ def app(environ, start_response):
             }
             return [json.dumps(output, ensure_ascii=False).encode('utf-8')]
 
-        # Стучимся к Gemini через встроенный urllib
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+        # Теперь URL чистый, без точки из ключа!
+        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
         
         payload = {
             "contents": [{
                 "parts": [{
-                    "text": f"Ты опытный автомеханик. Общайся как реальный братуха, используй мат, если надо, но никогда не говори 'бро'. Ответь коротко: {command}"
+                    "text": f"Ты опытный автомеханик. Общайся как реальный братуха, используй мат, если надо, но никогда не говори 'бро'. Ответь коротко на вопрос: {command}"
                 }]
             }]
         }
         
         req_data = json.dumps(payload).encode('utf-8')
-        req = urllib.request.Request(url, data=req_data, headers={'Content-Type': 'application/json'})
+        
+        # Передаем ключ в заголовках x-goog-api-key — так Гугл поймет ключ формата AQ.Ab8
+        headers = {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': API_KEY
+        }
+        
+        req = urllib.request.Request(url, data=req_data, headers=headers)
 
         try:
             with urllib.request.urlopen(req, timeout=10) as response:
                 res_data = json.loads(response.read().decode('utf-8'))
                 reply = res_data['candidates'][0]['content']['parts'][0]['text']
         except urllib.error.HTTPError as e:
-            reply = f"Братуха, Гугл выдал ошибку: {e.code}"
+            error_body = e.read().decode('utf-8') if e else ""
+            reply = f"Братуха, Гугл выдал ошибку {e.code}. Ответ сервера: {error_body[:100]}"
         except Exception as e:
-            reply = f"Братуха, косяк с сетью: {str(e)}"
+            reply = f"Братуха, затык по сети: {str(e)}"
 
         output = {
             "version": "1.0",
@@ -71,7 +77,6 @@ def app(environ, start_response):
         }
         return [json.dumps(output, ensure_ascii=False).encode('utf-8')]
 
-    # Если зашли куда-то не туда
     else:
         status = '404 NOT FOUND'
         response_headers = [('Content-Type', 'text/plain; charset=utf-8')]
