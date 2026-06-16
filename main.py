@@ -1,25 +1,20 @@
+from fastapi import FastAPI, Request
 import os
-from fastapi import FastAPI
 import google.generativeai as genai
 
 app = FastAPI()
 
-# Добавляем обработку и корня, и нашего пути
-"/"
 "/api/alice"
-async def alice_handler(request: dict = None):
-    # Если запрос пустой, просто отвечаем
-    if request is None:
-        return {"version": "1.0", "response": {"text": "На связи, братуха!", "end_session": False}}
-    
-    req_data = request.get("request", {})
+async def alice_handler(request: Request):
+    data = await request.json()
+    req_data = data.get("request", {})
     command = req_data.get("command", "")
     
     if not command:
         return {
             "version": "1.0",
-            "session": request.get("session", {}),
-            "response": {"text": "Чего хотел?", "end_session": False}
+            "session": data.get("session", {}),
+            "response": {"text": "На связи, братуха. Что по тачке?", "end_session": False}
         }
 
     try:
@@ -27,14 +22,14 @@ async def alice_handler(request: dict = None):
         model = genai.GenerativeModel("gemini-1.5-flash")
         
         response = model.generate_content(
-            f"Ты автомеханик. Общайся как братуха, используй нецензурную лексику, если уместно, но НЕ используй слово 'бро'. Твой совет: {command}"
+            f"Ты автомеханик. Общайся как братуха, используй мат, но НЕ говори 'бро'. Вопрос: {command}"
         )
         reply = response.text
     except Exception as e:
-        reply = "Братуха, какая-то хуйня с ответом сервера."
+        reply = "Братуха, сервер прилёг отдохнуть."
 
     return {
         "version": "1.0",
-        "session": request.get("session", {}),
+        "session": data.get("session", {}),
         "response": {"text": reply, "end_session": False}
     }
