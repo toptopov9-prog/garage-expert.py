@@ -1,35 +1,34 @@
-from flask import Flask, request, jsonify
+from fastapi import FastAPI, Request
 import httpx
 
-# Вёрсел автоматом ищет переменную с именем app
-app = Flask(__name__)
+# Вёрсел по умолчанию ищет именно эту переменную app в проектах FastAPI!
+app = FastAPI()
 
 # Твой рабочий ключ с фото
 API_KEY = "AQ.Ab8RN6Jdans4aBfeOVSPuUR5J-HBCoNJN-NQFTiHmyl9M9rgaA"
 
-@app.route('/', methods=['GET'])
-def root():
-    return jsonify({"status": "working", "message": "Братуха, мотор на Flask запущен! Прямой впрыск работает!"})
+@app.get("/")
+async def root():
+    return {"status": "working", "message": "Братуха, мотор заведён на FastAPI! Прямой впрыск работает!"}
 
-@app.route('/api/alice', methods=['POST'])
-async def alice_handler():
+@app.post("/api/alice")
+async def alice_handler(request: Request):
     try:
-        # Получаем данные от Алисы
-        data = request.get_json(silent=True) or {}
+        data = await request.json()
     except Exception:
-        return jsonify({"version": "1.0", "response": {"text": "Братуха, пустой запрос.", "end_session": False}})
+        return {"version": "1.0", "response": {"text": "Братуха, пустой запрос пришёл.", "end_session": False}}
         
     req_data = data.get("request", {})
     command = req_data.get("command", "")
     
     if not command:
-        return jsonify({
+        return {
             "version": "1.0",
             "session": data.get("session", {}),
             "response": {"text": "На связи, братуха! Что по тачке подсказать?", "end_session": False}
-        })
+        }
 
-    # Шлём запрос напрямую в API Gemini, обходя ублюдскую старую библиотеку Гугла
+    # Стучимся напрямую в API Gemini, передавая новый ключ прямо в URL
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
     
     headers = {
@@ -52,13 +51,13 @@ async def alice_handler():
             res_data = response.json()
             reply = res_data['candidates'][0]['content']['parts'][0]['text']
         else:
-            reply = f"Братуха, Гугл ответил кодом {response.status_code}. Что-то с ключом."
+            reply = f"Братуха, Гугл ответил кодом {response.status_code}."
             
     except Exception as e:
         reply = f"Братуха, сеть легла: {str(e)}"
 
-    return jsonify({
+    return {
         "version": "1.0",
         "session": data.get("session", {}),
         "response": {"text": reply, "end_session": False}
-    })
+    }
