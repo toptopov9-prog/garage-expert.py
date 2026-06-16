@@ -2,12 +2,14 @@ import os
 from fastapi import FastAPI, Request
 import google.generativeai as genai
 
-# Вот эта строчка обязательна! Вёрсел ищет именно это имя 'app'
 app = FastAPI()
+
+# Зашили твой ключ прямо в движок, теперь Версел не отмажется
+API_KEY = "AQ.Ab8RN6Lx40dhhzfToMCjGYezNBuze_f2P5CCQHzByvJijy5KWg"
 
 @app.get("/")
 async def root():
-    return {"message": "Братуха, я в сети и готов к работе!"}
+    return {"message": "Братуха, движок запущен прямо с ключа!"}
 
 @app.post("/api/alice")
 async def alice_handler(request: Request):
@@ -27,15 +29,16 @@ async def alice_handler(request: Request):
         }
 
     try:
-        # Ключ берётся из настроек Вёрсела
-        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+        # Инициализируем Гугл напрямую по ключу
+        genai.configure(api_key=API_KEY)
         model = genai.GenerativeModel("gemini-1.5-flash")
         
         prompt = f"Ты опытный автомеханик. Общайся как реальный братуха, используй мат и крепкое словцо, если это уместно, но никогда не используй слово 'бро'. Ответь коротко на вопрос: {command}"
         response = model.generate_content(prompt)
         reply = response.text
     except Exception as e:
-        reply = "Братуха, сервер Gemini чё-то тупит, давай ещё раз."
+        # Если ключ не подойдёт, он выведет в Алису саму ошибку, и мы сразу поймём в чём дело
+        reply = f"Братуха, косяк с ключом. Гугл выдал ошибку: {str(e)}"
 
     return {
         "version": "1.0",
